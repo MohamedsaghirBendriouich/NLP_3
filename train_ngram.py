@@ -1,11 +1,12 @@
 import os
+import sys
 import re
 from collections import defaultdict, Counter
 import random
 import pickle
 
 def tokenize(text):
-    return re.findall(r'\b\w+\b', text)
+    return re.findall(r'\w+', text)
 
 class NGramModel:
     def __init__(self, n):
@@ -43,35 +44,56 @@ class NGramModel:
             context = tuple(list(context)[1:] + [word])
         return ' '.join(result)
 
-def load_data(data_dir, max_files=10, lines_per_file=10000):
+def load_data(data_dir, max_files=None, max_sentences=None):
     sentences = []
     all_files = []
+
+    if not os.path.exists(data_dir):
+        print(f"Warning: Directory '{data_dir}' not found.")
+        return []
+
     for root, _, files in os.walk(data_dir):
         for f in files:
             if f.endswith('.txt'):
                 all_files.append(os.path.join(root, f))
 
+    # Shuffle files to get a diverse sample if limiting files
+    random.seed(42)
     random.shuffle(all_files)
 
-    for filepath in all_files[:max_files]:
+    if max_files:
+        all_files = all_files[:max_files]
+
+    for filepath in all_files:
+        if max_sentences and len(sentences) >= max_sentences:
+            break
+
         try:
             with open(filepath, 'r', encoding='utf-8') as file:
-                lines = file.readlines()
-                random.shuffle(lines)
-                for line in lines[:lines_per_file]:
+                for line in file:
                     line = line.strip()
                     if line:
                         tokens = tokenize(line)
                         if tokens:
                             sentences.append(tokens)
+                            if max_sentences and len(sentences) >= max_sentences:
+                                break
         except Exception as e:
             print(f"Error reading {filepath}: {e}")
 
     return sentences
 
 if __name__ == '__main__':
-    print("Loading data...")
-    sentences = load_data('data', max_files=15, lines_per_file=20000)
+    data_dir = sys.argv[1] if len(sys.argv) > 1 else 'data'
+    print(f"Loading data from '{data_dir}'...")
+
+    # Loading up to 500k sentences for a good balance of training speed and model quality
+    sentences = load_data(data_dir, max_sentences=500000)
+
+    if not sentences:
+        print(f"Error: No sentences were loaded from '{data_dir}'. Make sure the directory contains non-empty .txt files.")
+        sys.exit(1)
+
     print(f"Loaded {len(sentences)} sentences.")
 
     n = 3
