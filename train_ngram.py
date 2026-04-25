@@ -48,11 +48,26 @@ def load_data(data_dir, max_files=None, max_sentences=None):
     sentences = []
     all_files = []
 
-    if not os.path.exists(data_dir):
-        print(f"Warning: Directory '{data_dir}' not found.")
+    # Try different data directories (for ease of use depending on the current working dir)
+    possible_dirs = [
+        data_dir,
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data'),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
+    ]
+
+    actual_dir = None
+    for d in possible_dirs:
+        if os.path.exists(d) and os.path.isdir(d):
+            actual_dir = d
+            break
+
+    if not actual_dir:
+        print(f"Warning: Directory '{data_dir}' not found. Looked in: {possible_dirs}")
         return []
 
-    for root, _, files in os.walk(data_dir):
+    print(f"Loading data from '{actual_dir}'...")
+
+    for root, _, files in os.walk(actual_dir):
         for f in files:
             if f.endswith('.txt'):
                 all_files.append(os.path.join(root, f))
@@ -85,13 +100,12 @@ def load_data(data_dir, max_files=None, max_sentences=None):
 
 if __name__ == '__main__':
     data_dir = sys.argv[1] if len(sys.argv) > 1 else 'data'
-    print(f"Loading data from '{data_dir}'...")
 
     # Loading up to 500k sentences for a good balance of training speed and model quality
     sentences = load_data(data_dir, max_sentences=500000)
 
     if not sentences:
-        print(f"Error: No sentences were loaded from '{data_dir}'. Make sure the directory contains non-empty .txt files.")
+        print(f"Error: No sentences were loaded. Make sure the 'data' directory contains non-empty .txt files.")
         sys.exit(1)
 
     print(f"Loaded {len(sentences)} sentences.")
@@ -106,6 +120,8 @@ if __name__ == '__main__':
     for _ in range(5):
         print("-", model.generate())
 
-    with open(f'darija_{n}gram_model.pkl', 'wb') as f:
+    # Save in the same directory as the script
+    save_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f'darija_{n}gram_model.pkl')
+    with open(save_path, 'wb') as f:
         pickle.dump(model, f)
-    print(f"\nModel saved to darija_{n}gram_model.pkl")
+    print(f"\nModel saved to {save_path}")
